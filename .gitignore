@@ -13,3 +13,26 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+binary/
+
+*-seetaas-backend-*
+seetaas--*
+kpl--*
+/api/swag
+.idea/
+*.png
+!tester/test_data/*.png
+log-stash-v1
+*.swp
+.vscode/
+.history/
+cmd/manager/conf
+cmd/toolkit/toolkit
+seetaas*.html
+tester/storage
+tester/generator/generator
+
+mock/data
+
+.gradle/

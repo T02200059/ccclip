@@ -5,7 +5,6 @@ import (
 	"ccclip/libs"
 	"context"
 	"errors"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -22,8 +21,7 @@ func init() {
 
 func main() {
 	log.Info("Hello world.")
-	log.Info("Linux clipboard collector.")
-	fmt.Println("Use package: ", "github.com/atotto/clipboard")
+	log.Info("Clipboard collector.")
 
 	var err error
 	var errs = make(chan error, 3)

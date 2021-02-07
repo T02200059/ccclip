@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/atotto/clipboard"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"time"
@@ -45,7 +44,7 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 	for {
 		// TODO: 将读写剪贴板的方法与操作系统隔离
 		// read clipboard
-		current, err = clipboard.ReadAll()
+		current, err = libs.ReadClipboard()
 		if err != nil {
 			log.Error(err)
 			errs <- err
@@ -130,7 +129,7 @@ func handlePaste(payload string, current string) (err error) {
 	}
 
 	log.WithField("payload", payload).Info("Update clipboard on this device.")
-	err = clipboard.WriteAll(tcc)
+	err = libs.WriteClipboard(tcc)
 	if err != nil {
 		return
 	}

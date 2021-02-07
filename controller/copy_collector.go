@@ -9,10 +9,18 @@ import (
 )
 
 type CopyCollectorController struct {
+	CloudURL string // base url
 }
 
-func NewCopyCollectorControllerProvider() *CopyCollectorController {
-	return &CopyCollectorController{}
+func NewCopyCollectorControllerProvider(cloudURL string) *CopyCollectorController {
+	return &CopyCollectorController{
+		CloudURL: cloudURL,
+	}
+}
+
+type ClipRecord struct {
+	Payload   string    `json:"payload"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Run: Block here. Use 'go run' usually.
@@ -24,21 +32,43 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 	var current string
 
 	for {
-		// 读取剪切板中的内容到字符串, 本身不会读取空值.
+		var curRecord *ClipRecord
+
+		// read clipboard
 		current, err = clipboard.ReadAll()
 		if err != nil {
 			errs <- err
 			break
 		}
 
-		if last != current {
-			// send to cloud server
-			ok := handleCurrentCopy(current)
-			if ok {
-				last = current
+		// trim '\n'
+		tcc := libs.DefaultTrimmer(current)
+
+		// compare
+		if last != tcc {
+			curRecord = &ClipRecord{
+				Payload:   tcc,
+				UpdatedAt: time.Now(),
 			}
 		}
 
+		// async
+		var latestCopy string
+		latestCopy, err = queryClipboard(curRecord)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		// paste
+		err = handlePaste(latestCopy, current)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		// next...
+		last = current
 		time.Sleep(libs.CopyCollectorInterval)
 	}
 
@@ -51,15 +81,13 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 	return
 }
 
-// 负责整理字符串并发送到同步 cloud.
-func handleCurrentCopy(cc string) (ok bool) {
-	tcc := libs.DefaultTrimmer(cc)
-	println(tcc)
+// POST 请求发送剪贴板记录并获取最新同步.
+func queryClipboard(record *ClipRecord) (response string, err error) {
+	if record != nil {
+		log.Infof("Async a new clipboard record: %+v", record)
+	}
 
-	// trim '\n'
+	// TODO: request
 
-	// TODO: SEND TO CLOUD SERVER
-
-	ok = true
 	return
 }

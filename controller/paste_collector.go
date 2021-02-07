@@ -35,17 +35,22 @@ func (pcc *PasteCollectorController) HandlePaste(c *gin.Context) {
 		return
 	}
 
-	err = handlePaste(req.Payload)
+	err = handlePaste(req.Payload, "")
 	if err != nil {
 		log.Error(err)
 		h.SendError(c, err, nil)
 		return
 	}
+
+	h.SendOK(c, nil)
 }
 
 // 对 cloud 同步来的剪贴板内容进行检查并写入到本地剪贴板.
-func handlePaste(payload string) (err error) {
+func handlePaste(payload string, current string) (err error) {
 	tcc := libs.DefaultTrimmer(payload)
+	if tcc == current {
+		return // nothing happened.
+	}
 
 	err = clipboard.WriteAll(tcc)
 	if err != nil {

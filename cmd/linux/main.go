@@ -2,6 +2,7 @@ package main
 
 import (
 	"ccclip/controller"
+	"ccclip/libs"
 	"context"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ func init() {
 	})
 }
 
-const cloudURL = "http://localhost:22123"
+const cloudURL = "http://192.168.1.139:22123"
 
 func main() {
 	log.Info("Hello world.")
@@ -31,7 +32,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// copy & paste 在无公网 ip 的环境下, 通过主动轮询来刷新数据.
-	ccc := controller.NewCopyCollectorControllerProvider(cloudURL)
+	ccc := controller.NewCopyCollectorControllerProvider(cloudURL, libs.OriginUserYTB, libs.GetPlatformCode())
 	go func() {
 		errs <- ccc.Run(ctx)
 	}()

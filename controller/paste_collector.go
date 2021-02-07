@@ -47,6 +47,10 @@ func (pcc *PasteCollectorController) HandlePaste(c *gin.Context) {
 
 // 对 cloud 同步来的剪贴板内容进行检查并写入到本地剪贴板.
 func handlePaste(payload string, current string) (err error) {
+	if payload == "" {
+		return // nothing happened
+	}
+
 	tcc := libs.DefaultTrimmer(payload)
 	if tcc == current {
 		return // nothing happened.

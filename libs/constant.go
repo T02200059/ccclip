@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+const CloudURL = "http://192.168.1.139:22122"
+const CloudPort = ":22122"
+
 const CopyCollectorInterval = 3 * time.Second
 const PingPongInterval = 10 * time.Second
 const NetworkErrInterval = 10 * time.Second
@@ -28,13 +31,25 @@ func GetPlatformCode() (p UserCode) {
 
 	switch runtime.GOOS {
 	case "linux":
-		p = 1
+		p = SysLinux
 	case "windows":
-		p = 2
+		p = SysWindows
 	case "darwin":
-		p = 3
+		p = SysDarwin
 	default:
-		p = 0
+		p = SysUnknown
 	}
+	return
+}
+
+func DecodeUser(n UserCode) (p UserCode) {
+	c := n / 100 % 10
+	p = UserCode(c * 100)
+	return
+}
+
+func DecodePlatform(n UserCode) (p UserCode) {
+	c := n % 10
+	p = UserCode(c)
 	return
 }

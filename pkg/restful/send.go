@@ -7,6 +7,12 @@ import (
 	"net/http"
 )
 
+type CopyResponse struct {
+	Code string `json:"code"`
+	Data string `json:"data"`
+	Msg  string `json:"msg"`
+}
+
 func SendOK(c *gin.Context, data interface{}) {
 	c.JSON(200, gin.H{
 		"code": "Success",

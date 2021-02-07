@@ -5,6 +5,7 @@ import (
 	"ccclip/pkg/restful"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/atotto/clipboard"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -25,12 +26,6 @@ func NewCopyCollectorControllerProvider(cloudURL string, b, p libs.UserCode) *Co
 	}
 }
 
-type ClipRecord struct {
-	User      libs.UserCode `json:"user"`
-	Payload   string        `json:"payload"`
-	UpdatedAt time.Time     `json:"updated_at"`
-}
-
 func (ccc *CopyCollectorController) UserCode() (result libs.UserCode) {
 	return ccc.BasicUserCode + ccc.Platform
 }
@@ -42,14 +37,17 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 
 	var last string
 	var current string
+	var curRecord = &libs.ClipRecord{
+		User:      ccc.UserCode(),
+		UpdatedAt: time.Now(),
+	}
 
 	for {
-		var curRecord *ClipRecord
-
 		// TODO: 将读写剪贴板的方法与操作系统隔离
 		// read clipboard
 		current, err = clipboard.ReadAll()
 		if err != nil {
+			log.Error(err)
 			errs <- err
 			break
 		}
@@ -59,12 +57,11 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 
 		// compare
 		if last != tcc {
-			curRecord = &ClipRecord{
-				User:      ccc.UserCode(),
-				Payload:   tcc,
-				UpdatedAt: time.Now(),
-			}
+			log.Debugf("A new local clipboard payload: %s", tcc)
+			curRecord.Payload = tcc
+			curRecord.UpdatedAt = time.Now()
 		}
+		last = tcc
 
 		// async
 		var latestCopy string
@@ -77,12 +74,12 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 		// paste
 		err = handlePaste(latestCopy, current)
 		if err != nil {
+			log.Error(err)
 			errs <- err
 			break
 		}
 
 		// next...
-		last = tcc
 		time.Sleep(libs.CopyCollectorInterval)
 	}
 
@@ -96,30 +93,47 @@ func (ccc *CopyCollectorController) Run(ctx context.Context) (err error) {
 }
 
 // POST 请求发送剪贴板记录并获取最新同步.
-func (ccc *CopyCollectorController) queryClipboard(record *ClipRecord) (response string, err error) {
-	if record != nil {
-		log.Infof("Async a new clipboard record: %+v", record)
+func (ccc *CopyCollectorController) queryClipboard(record *libs.ClipRecord) (response string, err error) {
+	if record == nil {
+		err = errors.New("record cannot be nil")
+		return
 	}
 
 	var postUrl string
-	var postBody []byte
 
 	postUrl = ccc.CloudURL + libs.SuffixAsync
 
-	if record != nil {
-		postBody, err = json.Marshal(record)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-	}
-
-	resp, err := restful.DoPost(postUrl, postBody, nil, nil)
+	resp, err := restful.DoPost(postUrl, record, nil, nil)
 	if err != nil {
 		return
 	}
 
 	respBody, _ := ioutil.ReadAll(resp.Body)
-	response = string(respBody)
+	respCopy := &restful.CopyResponse{}
+	err = json.Unmarshal(respBody, respCopy)
+	if err != nil {
+		return
+	}
+	response = respCopy.Data
+	return
+}
+
+// 对 cloud 同步来的剪贴板内容进行检查并写入到本地剪贴板.
+func handlePaste(payload string, current string) (err error) {
+	if payload == "" {
+		return // nothing happened
+	}
+
+	tcc := libs.DefaultTrimmer(payload)
+	if tcc == current {
+		return // nothing happened.
+	}
+
+	log.WithField("payload", payload).Info("Update clipboard on this device.")
+	err = clipboard.WriteAll(tcc)
+	if err != nil {
+		return
+	}
+
 	return
 }

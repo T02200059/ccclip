@@ -3,16 +3,19 @@ package controller
 import (
 	"ccclip/libs"
 	h "ccclip/pkg/restful"
-	"github.com/atotto/clipboard"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
 type PasteCollectorController struct {
+	sessions map[libs.UserCode]*libs.ClipRecord
 }
 
-func NewPasteCollectorControllerProvider() *PasteCollectorController {
-	return &PasteCollectorController{}
+func NewPasteCollectorControllerProvider(m map[libs.UserCode]*libs.ClipRecord) *PasteCollectorController {
+	return &PasteCollectorController{
+		sessions: m,
+	}
 }
 
 func (pcc *PasteCollectorController) PingPong(c *gin.Context) {
@@ -22,12 +25,8 @@ func (pcc *PasteCollectorController) PingPong(c *gin.Context) {
 }
 
 func (pcc *PasteCollectorController) HandlePaste(c *gin.Context) {
-	var req struct {
-		Payload string `json:"payload"`
-	}
-
+	var req libs.ClipRecord
 	var err error
-
 	err = c.ShouldBind(&req)
 	if err != nil {
 		log.Error(err)
@@ -35,31 +34,33 @@ func (pcc *PasteCollectorController) HandlePaste(c *gin.Context) {
 		return
 	}
 
-	err = handlePaste(req.Payload, "")
-	if err != nil {
-		log.Error(err)
-		h.SendError(c, err, nil)
-		return
-	}
+	fmt.Printf("%+v\n", req)
 
-	h.SendOK(c, nil)
+	cp := pcc.async(&req)
+
+	h.SendOK(c, cp) // TODO: COMPARE THE LATEST COPY
 }
 
-// 对 cloud 同步来的剪贴板内容进行检查并写入到本地剪贴板.
-func handlePaste(payload string, current string) (err error) {
-	if payload == "" {
-		return // nothing happened
-	}
-
-	tcc := libs.DefaultTrimmer(payload)
-	if tcc == current {
-		return // nothing happened.
-	}
-
-	err = clipboard.WriteAll(tcc)
-	if err != nil {
+func (pcc *PasteCollectorController) async(info *libs.ClipRecord) (latestCopy string) {
+	if info == nil {
 		return
 	}
+
+	if pcc.sessions == nil {
+		log.Panic("Sessions map is nil!")
+	}
+
+	latestCopy = info.Payload
+
+	u := libs.DecodeUser(info.User)
+	if s, ok := pcc.sessions[u]; ok {
+		if s.UpdatedAt.After(info.UpdatedAt) {
+			latestCopy = s.Payload
+			return
+		}
+	}
+
+	pcc.sessions[u] = info
 
 	return
 }
